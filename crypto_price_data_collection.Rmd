@@ -1,0 +1,529 @@
+---
+title: "coingecko price data collection"
+output: html_document
+keep_md: yes
+---
+
+```{r setup-chunk, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      cache = FALSE)
+```
+
+
+```{r}
+
+if (!require("tidyverse")) install.packages("tidyverse")
+library(tidyverse)
+if (!require("ggplot2")) install.packages("ggplot2")
+library(ggplot2)
+if (!require("ggthemes")) install.packages("ggthemes")
+library(ggthemes)
+if (!require("lubridate")) install.packages("lubridate")
+library(lubridate)
+if (!require("geckor")) install.packages("geckor")
+library(geckor)
+
+theme_set(theme_wsj(color ="gray"))
+
+```
+
+```{r}
+ftm.price22.03.02 <- coin_history_range(
+  coin_id = "fantom", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+ftm.price21.12.15 <- coin_history_range(
+  coin_id = "fantom", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-09-20 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-12-15 00:00:00", tz = "UTC")
+)
+ftm.price21.09.20 <- coin_history_range(
+  coin_id = "fantom", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-06-25 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-09-20 00:00:00", tz = "UTC")
+)
+ftm.price21.06.25 <- coin_history_range(
+  coin_id = "fantom", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-03-30 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-06-25 00:00:00", tz = "UTC")
+)
+```
+
+```{r}
+ftm.price <- bind_rows(ftm.price22.03.02, ftm.price21.12.15, ftm.price21.09.20, ftm.price21.06.25) %>%
+  distinct()
+
+rm(ftm.price22.03.02, ftm.price21.12.15, ftm.price21.09.20, ftm.price21.06.25)
+```
+
+
+```{r}
+boo.price22.03.02 <- coin_history_range(
+  coin_id = "spookyswap", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+boo.price21.12.15 <- coin_history_range(
+  coin_id = "spookyswap", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-09-20 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-12-15 00:00:00", tz = "UTC")
+)
+boo.price21.09.20 <- coin_history_range(
+  coin_id = "spookyswap", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-06-25 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-09-20 00:00:00", tz = "UTC")
+)
+boo.price21.06.25 <- coin_history_range(
+  coin_id = "spookyswap", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-03-30 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-06-25 00:00:00", tz = "UTC")
+)
+
+```
+
+```{r}
+boo.price <- bind_rows(boo.price22.03.02, boo.price21.12.15, boo.price21.09.20, boo.price21.06.25) %>%
+  distinct()
+
+rm(boo.price22.03.02, boo.price21.12.15, boo.price21.09.20, boo.price21.06.25)
+```
+
+```{r}
+spirit.price22.03.02 <- coin_history_range(
+  coin_id = "spiritswap", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+spirit.price21.12.15 <- coin_history_range(
+  coin_id = "spiritswap", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-09-20 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-12-15 00:00:00", tz = "UTC")
+)
+spirit.price21.09.20 <- coin_history_range(
+  coin_id = "spiritswap", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-06-25 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-09-20 00:00:00", tz = "UTC")
+)
+spirit.price21.06.25 <- coin_history_range(
+  coin_id = "spiritswap", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-03-30 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-06-25 00:00:00", tz = "UTC")
+)
+```
+
+```{r}
+spirit.price <- bind_rows(spirit.price22.03.02, spirit.price21.12.15, spirit.price21.09.20, spirit.price21.06.25) %>%
+  distinct()
+rm(spirit.price22.03.02, spirit.price21.12.15, spirit.price21.09.20, spirit.price21.06.25)
+```
+
+
+```{r}
+treeb.price22.03.02 <- coin_history_range(
+  coin_id = "treeb", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+treeb.price21.12.15 <- coin_history_range(
+  coin_id = "treeb", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-09-20 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-12-15 00:00:00", tz = "UTC")
+)
+
+```
+
+```{r}
+treeb.price <- bind_rows(treeb.price22.03.02, treeb.price21.12.15) %>%
+  distinct()
+
+rm(treeb.price22.03.02, treeb.price21.12.15)
+```
+
+
+```{r}
+lqdr.price22.03.02 <- coin_history_range(
+  coin_id = "liquiddriver", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+lqdr.price21.12.15 <- coin_history_range(
+  coin_id = "liquiddriver", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-09-20 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-12-15 00:00:00", tz = "UTC")
+)
+lqdr.price21.09.20 <- coin_history_range(
+  coin_id = "liquiddriver", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-06-25 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-09-20 00:00:00", tz = "UTC")
+)
+lqdr.price21.06.25 <- coin_history_range(
+  coin_id = "liquiddriver", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-03-30 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-06-25 00:00:00", tz = "UTC")
+)
+
+```
+
+```{r}
+lqdr.price <- bind_rows(lqdr.price22.03.02, lqdr.price21.12.15, lqdr.price21.09.20, lqdr.price21.06.25) %>%
+  distinct()
+
+rm(lqdr.price22.03.02, lqdr.price21.12.15, lqdr.price21.09.20, lqdr.price21.06.25)
+```
+
+
+```{r}
+comb.price <- coin_history_range(
+  coin_id = "comb-finance", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+
+```
+
+
+```{r}
+beets.price22.03.02 <- coin_history_range(
+  coin_id = "beethoven-x", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+beets.price21.12.15 <- coin_history_range(
+  coin_id = "beethoven-x", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-09-20 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-12-15 00:00:00", tz = "UTC")
+)
+
+```
+
+```{r}
+beets.price <- bind_rows(beets.price22.03.02, beets.price21.12.15) %>%
+  distinct()
+
+rm(beets.price22.03.02, beets.price21.12.15)
+```
+
+
+```{r}
+hec.price22.03.02 <- coin_history_range(
+  coin_id = "hector-dao", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+hec.price21.12.15 <- coin_history_range(
+  coin_id = "hector-dao", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-09-20 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-12-15 00:00:00", tz = "UTC")
+)
+
+```
+
+```{r}
+hec.price <- bind_rows(hec.price22.03.02, hec.price21.12.15) %>%
+  distinct()
+rm(hec.price22.03.02, hec.price21.12.15)
+```
+
+
+```{r}
+power.price22.03.02 <- coin_history_range(
+  coin_id = "power-nodes", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+power.price21.12.15 <- coin_history_range(
+  coin_id = "power-nodes", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-09-20 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-12-15 00:00:00", tz = "UTC")
+)
+
+```
+
+```{r}
+power.price <- bind_rows(power.price22.03.02, power.price21.12.15) %>%
+  distinct()
+
+rm(power.price22.03.02, power.price21.12.15)
+```
+
+
+
+```{r}
+tarot.price22.03.02 <- coin_history_range(
+  coin_id = "tarot", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+tarot.price21.12.15 <- coin_history_range(
+  coin_id = "tarot", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-09-20 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-12-15 00:00:00", tz = "UTC")
+)
+tarot.price21.09.20 <- coin_history_range(
+  coin_id = "tarot", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-06-25 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-09-20 00:00:00", tz = "UTC")
+)
+```
+
+```{r}
+tarot.price <- bind_rows(tarot.price22.03.02, tarot.price21.12.15, tarot.price21.09.20) %>%
+  distinct()
+rm(tarot.price22.03.02, tarot.price21.12.15, tarot.price21.09.20)
+```
+
+
+```{r}
+oxd.price <- coin_history_range(
+  coin_id = "0xdao", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+
+```
+
+
+```{r}
+brush.price22.03.02 <- coin_history_range(
+  coin_id = "paint-swap", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+brush.price21.12.15 <- coin_history_range(
+  coin_id = "paint-swap", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-09-20 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-12-15 00:00:00", tz = "UTC")
+)
+```
+
+```{r}
+brush.price <- bind_rows(brush.price22.03.02, brush.price21.12.15) %>%
+  distinct()
+rm(brush.price22.03.02, brush.price21.12.15)
+```
+
+
+```{r}
+wigo.price <- coin_history_range(
+  coin_id = "wigoswap", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+
+```
+
+
+```{r}
+atlas.price <- coin_history_range(
+  coin_id = "atlas-cloud", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+
+```
+
+
+```{r}
+soul.price22.03.02 <- coin_history_range(
+  coin_id = "soul-swap", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+soul.price21.12.15 <- coin_history_range(
+  coin_id = "soul-swap", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-09-20 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-12-15 00:00:00", tz = "UTC")
+)
+```
+
+```{r}
+soul.price <- bind_rows(soul.price22.03.02, soul.price21.12.15) %>%
+  distinct()
+rm(soul.price22.03.02, soul.price21.12.15)
+```
+
+
+```{r}
+dfi.price <- coin_history_range(
+  coin_id = "diversifi", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+```
+
+
+```{r}
+weve.price <- coin_history_range(
+  coin_id = "vedao", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+
+```
+
+
+```{r}
+geist.price22.03.02 <- coin_history_range(
+  coin_id = "geist-finance", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+geist.price21.12.15 <- coin_history_range(
+  coin_id = "geist-finance", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-09-20 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-12-15 00:00:00", tz = "UTC")
+)
+```
+
+```{r}
+geist.price <- bind_rows(geist.price22.03.02, geist.price21.12.15) %>%
+  distinct()
+rm(geist.price22.03.02, geist.price21.12.15)
+```
+
+
+```{r}
+spa.price22.03.02 <- coin_history_range(
+  coin_id = "spartacus", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+spa.price21.12.15 <- coin_history_range(
+  coin_id = "spartacus", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-09-20 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-12-15 00:00:00", tz = "UTC")
+)
+
+```
+
+```{r}
+spa.price <- bind_rows(spa.price22.03.02, spa.price21.12.15) %>%
+  distinct()
+
+rm(spa.price22.03.02, spa.price21.12.15)
+```
+
+
+```{r}
+btc.price22.03.02 <- coin_history_range(
+  coin_id = "bitcoin", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+btc.price21.12.15 <- coin_history_range(
+  coin_id = "bitcoin", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-09-20 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-12-15 00:00:00", tz = "UTC")
+)
+btc.price21.09.20 <- coin_history_range(
+  coin_id = "bitcoin", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-06-25 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-09-20 00:00:00", tz = "UTC")
+)
+btc.price21.06.25 <- coin_history_range(
+  coin_id = "bitcoin", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-03-30 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-06-25 00:00:00", tz = "UTC")
+)
+
+```
+
+```{r}
+btc.price <- bind_rows(btc.price22.03.02, btc.price21.12.15, btc.price21.09.20, btc.price21.06.25) %>%
+  distinct()
+rm(btc.price22.03.02, btc.price21.12.15, btc.price21.09.20, btc.price21.06.25)
+```
+
+```{r}
+eth.price22.03.02 <- coin_history_range(
+  coin_id = "ethereum", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-12-15 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2022-03-02 23:05:40", tz = "UTC")
+)
+eth.price21.12.15 <- coin_history_range(
+  coin_id = "ethereum", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-09-20 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-12-15 00:00:00", tz = "UTC")
+)
+eth.price21.09.20 <- coin_history_range(
+  coin_id = "ethereum", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-06-25 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-09-20 00:00:00", tz = "UTC")
+)
+eth.price21.06.25 <- coin_history_range(
+  coin_id = "ethereum", 
+  vs_currency = "usd",
+  from = as.POSIXct("2021-03-30 00:00:00", tz = "UTC"),
+  to = as.POSIXct("2021-06-25 00:00:00", tz = "UTC")
+)
+
+```
+
+```{r}
+eth.price <- bind_rows(eth.price22.03.02, eth.price21.12.15, eth.price21.09.20, eth.price21.06.25) %>%
+  distinct()
+rm(eth.price22.03.02, eth.price21.12.15, eth.price21.09.20, eth.price21.06.25)
+```
+
+```{r}
+token.prices <- bind_rows(atlas.price, beets.price, boo.price, brush.price, comb.price, dfi.price, ftm.price, geist.price,
+                          hec.price, lqdr.price, oxd.price, power.price, soul.price, spa.price, spirit.price, tarot.price,
+                          treeb.price, weve.price, wigo.price, btc.price, eth.price)
+rm(atlas.price, beets.price, boo.price, brush.price, comb.price, dfi.price, ftm.price, geist.price,
+                          hec.price, lqdr.price, oxd.price, power.price, soul.price, spa.price, spirit.price, tarot.price,
+                          treeb.price, weve.price, wigo.price, btc.price, eth.price)
+```
+
+```{r}
+#Backup Clean data
+write.csv(token.prices, file="tokenprices.csv")
+```

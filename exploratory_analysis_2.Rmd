@@ -1,0 +1,616 @@
+---
+title: "ARIMA Forecasting"
+output: html_document
+keep_md: yes
+---
+
+```{r setup-chunk, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      cache = FALSE,
+                      error = TRUE)
+```
+
+```{r}
+
+if (!require("tidyverse")) install.packages("tidyverse")
+library(tidyverse)
+if (!require("tm")) install.packages("tm")
+library(tm)
+if (!require("lubridate")) install.packages("lubridate")
+library(lubridate)
+if (!require("xts")) install.packages("xts")
+library(xts)
+if (!require("zoo")) install.packages("zoo")
+library(zoo)
+if (!require("forecast")) install.packages("forecast")
+library(forecast)
+if (!require("fpp2")) install.packages("fpp2")
+library(fpp2)
+
+```
+
+```{r}
+
+# read in the price data 
+token_prices <- read_csv("tokenprices.csv")
+
+token_names <- c("fantom", "spookyswap", "spiritswap", "liquiddriver", "comb-finance", "0xdao", 
+                 "atlas-cloud", "soul-swap", "geist-finance", "spartacus")
+
+token_prices <- token_prices %>%
+  filter(coin_id %in% token_names) %>%
+  select(-vs_currency, -...1)
+
+token_prices$timestamp <- as_datetime(token_prices$timestamp, tz = "UTC")
+
+token_prices %>%
+  group_by(coin_id) %>%
+  slice(which.min(timestamp)) %>%
+  arrange(desc(timestamp))
+```
+
+Going to use newest token to determine the testing data
+```{r}
+
+token_prices <- token_prices %>%
+  ungroup()
+
+oxdao <- token_prices %>%
+  filter(coin_id == "0xdao")
+
+start.date <- oxdao %>%
+  slice_min(timestamp) %>%
+  pull(timestamp)
+
+test.start <- oxdao$timestamp[length(oxdao)*.7]
+test.length <- trunc(length(oxdao$timestamp) * .3)
+test.start2 <- 24*21+5
+end.date <- token_prices %>%
+  slice_max(timestamp) %>%
+  pull(timestamp)
+```
+
+Now, let's start doing some work on Fantom data
+```{r}
+ftm_price <- token_prices %>%
+  filter(coin_id == "fantom") %>%
+  select(-coin_id) %>%
+  arrange(timestamp)
+
+ftm.start.date <- ftm_price %>%
+  slice_min(timestamp) %>%
+  pull(timestamp)
+
+ftm_ts <- as.xts(ftm_price[,2:4], order.by = ftm_price$timestamp)
+
+plot.zoo(ftm_ts, plot.type = "multiple")
+```
+Let's start with using strictly price data and setting up our train-test
+```{r}
+train_ftm <- ftm_price %>%
+  slice_head(n = length(ftm_price$timestamp) - test.length)
+test_ftm <- ftm_price %>%
+  slice_tail(n = test.length)
+train_ftm <- as.xts(train_ftm[,2], order.by = train_ftm$timestamp)
+test_ftm <- as.xts(test_ftm[,2], order.by = test_ftm$timestamp)
+```
+
+
+```{r}
+autoplot(train_ftm)
+```
+
+
+```{r}
+gglagplot(train_ftm, lags = 24)
+```
+Ljung Box-Test to see if white noise
+```{r}
+Box.test(train_ftm, lag = 24, fitdf = 0, type = "Lj")
+```
+
+```{r}
+ggAcf(train_ftm, lag.max = 24*7)
+```
+Definitely not white, noise. Let's see what differencing does
+```{r}
+autoplot(diff(train_ftm))
+```
+
+```{r}
+ggAcf(diff(train_ftm))
+```
+
+```{r}
+Box.test(diff(train_ftm), lag = 24, fitdf = 0, type = "Lj")
+```
+This still isn't white noise
+```{r}
+autoplot(diff(log(train_ftm)))
+```
+```{r}
+ggAcf(diff(log(train_ftm)))
+```
+```{r}
+Box.test(diff(log(train_ftm)), lag = 24, fitdf = 0, type = "Lj")
+```
+That actually made it worse...
+```{r}
+autoplot(diff(diff(log(train_ftm))))
+```
+
+```{r}
+ggAcf(diff(diff(log(train_ftm))))
+```
+
+```{r}
+Box.test(diff(diff(log(train_ftm))), lag = 24, fitdf = 0, type = "Lj")
+```
+
+Let's try arima models
+```{r}
+arfc_ftm <- auto.arima(train_ftm)
+checkresiduals(arfc_ftm)
+```
+
+```{r}
+arfc_ftm %>% forecast(h = test.length) %>% autoplot()
+```
+
+```{r}
+arfc_ftm2 <- auto.arima(train_ftm, lambda = 0)
+checkresiduals(arfc_ftm2)
+```
+
+```{r}
+arfc_ftm2 %>% forecast(h = test.length) %>% autoplot()
+```
+takes longer
+```{r}
+arfc_ftm3 <- auto.arima(train_ftm, stepwise = FALSE)
+checkresiduals(arfc_ftm3)
+```
+
+```{r}
+arfc_ftm3 %>% forecast(h = test.length) %>% autoplot()
+```
+
+```{r}
+arfc_ftm4 <- auto.arima(train_ftm, lambda = 0, stepwise = FALSE)
+checkresiduals(arfc_ftm4)
+```
+
+Let's see what tbats gives ups
+```{r}
+train_ftm2 <- ts(train_ftm)
+tbat_ftm <- tbats(train_ftm2)
+tbat_ftm %>% forecast(h = test.length) %>% autoplot()
+```
+All of this basically sucks... What if we try looking at this in the form of returns instead of price?
+
+```{r}
+ftm_returns <- ftm_price %>%
+  select(price)
+```
+
+```{r}
+ftm_returns <-  ftm_returns[-1,] / ftm_returns[-8118,] - 1
+
+train_ret <- ftm_returns %>%
+  slice_head(n = length(ftm_returns$price) - test.length + 1)
+test_ret <- ftm_returns %>%
+  slice_tail(n = test.length - 1)
+
+train_time <- ftm_price %>%
+  slice_head(n = length(ftm_price$timestamp) - test.length + 1) %>%
+  select(timestamp)
+test_time <- ftm_price %>%
+  slice_tail(n = test.length - 1) %>%
+  select(timestamp)
+
+train_time <- train_time[-1,]
+```
+
+
+
+```{r}
+train_ret <- as.xts(train_ret[,1], order.by = train_time$timestamp)
+test_ret <- as.xts(test_ret[,1], order.by = test_time$timestamp)
+
+```
+
+
+```{r}
+autoplot(train_ret)
+```
+
+```{r}
+Box.test(train_ret, lag = 24, fitdf = 0, type = "Lj")
+```
+
+```{r}
+Box.test(train_ret, lag = 1, fitdf = 0, type = "Lj")
+```
+
+```{r}
+train_ret2 <- ts(train_ret)
+tbat_ret <- tbats(train_ret2)
+tbat_ret %>% forecast(h = test.length) %>% autoplot()
+```
+
+```{r}
+autoplot(diff(train_ret))
+```
+
+```{r}
+Box.test(diff(train_ret), lag = 1, fitdf = 0, type = "Lj")
+```
+
+
+```{r}
+Box.test(train_ret, lag = 24, fitdf = 0, type = "Lj")
+```
+
+
+```{r}
+autoplot(diff(log(train_ret)))
+```
+
+```{r}
+diff_log_train <- diff(log(train_ret))
+```
+
+```{r}
+Box.test(diff_log_train, lag = 1, fitdf = 0, type = "Lj")
+```
+
+We're at our limit just using price data and we don't have much useful.. Let's start looking at twitter data
+Import data
+```{r}
+# read in csv file of tweets
+rawish.data <- read.csv('influencerdata_clean.csv')
+tweets <- rawish.data
+```
+
+```{r}
+tweets$created_at <- as_datetime(tweets$created_at, tz = "UTC")
+tweets$quoted_created_at <- as_datetime(tweets$quoted_created_at, tz = "UTC")
+tweets$retweet_created_at <- as_datetime(tweets$retweet_created_at, tz = "UTC")
+tweets$account_created_at <- as_datetime(tweets$account_created_at, tz = "UTC")
+
+```
+
+Clean hashtags
+```{r}
+# common artifacts that remain after cleaning
+other.words <- c("rt", "amp","htt")
+
+# remove all urls
+tweets$hashtags <- gsub("(s?)(f|ht)tp(s?)://\\S+\\b", "", tweets$hashtags)
+
+
+# clean data
+tweets$hashtags <- tweets$hashtags %>%
+  removeNumbers() %>%
+  tolower() %>%
+  iconv(from = 'UTF-8', to = 'ASCII//TRANSLIT') %>% #Remove accents, foreign language items
+  removeWords(stopwords("SMART")) %>%
+  removeWords(other.words) %>%
+  stemDocument() %>%
+  stripWhitespace()
+
+tweets$hashtags[tweets$hashtags == "NA"] <- NA
+
+```
+
+Clean symbols
+```{r}
+# common artifacts that remain after cleaning
+other.words <- c("rt", "amp","htt")
+
+# remove all urls
+tweets$symbols <- gsub("(s?)(f|ht)tp(s?)://\\S+\\b", "", tweets$symbols)
+
+
+# clean data
+tweets$symbols <- tweets$symbols %>%
+  removeNumbers() %>%
+  tolower() %>%
+  iconv(from = 'UTF-8', to = 'ASCII//TRANSLIT') %>% #Remove accents, foreign language items
+  removeWords(stopwords("SMART")) %>%
+  removeWords(other.words) %>%
+  stemDocument() %>%
+  stripWhitespace()
+
+tweets$symbols[tweets$symbols == "NA"] <- NA
+
+
+```
+
+```{r}
+ftm <- tweets %>%
+  filter(symbols == "ftm") %>%
+  mutate(hr = round_date(created_at, unit = "hour"))
+
+ftm_summary <- ftm %>% count(hr)
+
+ftm_summary %>% 
+  ggplot() + 
+  geom_line(aes(x = hr, y = n), alpha = .7) + # change alpha for readability 
+  theme(axis.text.x = element_text(angle = 30)) + # make x-axis more readable
+  ggtitle("Tweets per Hour") +
+  xlab("") +
+  ylab("Tweets")
+```
+
+We don't have price data until 4/1, let's filter the tweets to then
+```{r}
+ftm <- ftm %>%
+  filter(created_at >= ftm.start.date) 
+
+ftm_summary <- ftm %>% count(hr)
+
+ftm_summary %>% 
+  ggplot() + 
+  geom_col(aes(x = hr, y = n)) + 
+  theme(axis.text.x = element_text(angle = 30)) + # make x-axis more readable
+  ggtitle("Tweets per Hour") +
+  xlab("") +
+  ylab("Tweets")
+```
+
+
+
+```{r}
+ftm_price <-  ftm_price %>%
+  mutate(hr = round_date(timestamp, unit = "hour"))
+```
+
+```{r}
+#Merge the two tables
+ftm_simple <- ftm_price %>%
+  select(hr, price) %>%
+  left_join(ftm_summary, by = c("hr" = "hr"))
+
+# change nas to 0s 
+ftm_simple <- ftm_simple %>% mutate(n = ifelse(is.na(n), 0, n)) %>%
+  rename(tweets = n)
+```
+
+```{r}
+pairs(ftm_simple)
+```
+That's a mess
+```{r}
+ftm_price_tweets <- ftm_simple %>%
+  select(-hr)
+log_ftm <- log(ftm_price_tweets)
+pairs(log_ftm)
+```
+
+```{r}
+price_diff_log <- diff(log_ftm$price)
+tweets_diff_log <- diff(log_ftm$tweets)
+diff_log_ftm <- cbind(price_diff_log, tweets_diff_log)
+pairs(diff_log_ftm)
+```
+
+This might kinda be something?
+```{r}
+train_sftm <- ftm_simple %>%
+  slice_head(n = length(ftm_simple$hr) - test.length)
+test_sftm <- ftm_simple %>%
+  slice_tail(n = test.length)
+train_sftm <- as.xts(train_sftm[,2:3], order.by = train_sftm$hr)
+test_sftm <- as.xts(test_sftm[,2:3], order.by = test_sftm$hr)
+```
+
+```{r}
+autoplot(train_sftm, facets = TRUE)
+```
+
+```{r}
+train_sftm2 <- ts(train_sftm)
+test_sftm2 <- ts(test_sftm)
+fit <- auto.arima(train_sftm2[,"price"], xreg = train_sftm2[,"tweets"], stationary = TRUE)
+checkresiduals(fit)
+```
+
+```{r}
+fit %>% forecast(xreg = test_sftm2[,"tweets"]) %>% autoplot()
+```
+
+This looks better... What if we limit our data by a lot. 200-day and 50 day moving averages are popular
+Since we're looking at hourly data, and lifecycles in crypto are so short, let's use 50 day as the cut-off
+```{r}
+ftm_ssimple <- ftm_simple %>%
+  slice_tail(n = 24*50 + test.length) %>%
+  slice_head(n = 24*50)
+
+train <- ftm_ssimple
+test <- ftm_simple %>%
+  slice_tail(n = test.length)
+```
+
+```{r}
+pairs(train)
+```
+
+```{r}
+ftm_price_tweets <- train %>%
+  select(-hr)
+log_ftm <- log(ftm_price_tweets)
+pairs(log_ftm)
+```
+```{r}
+price_diff <- diff(ftm_price_tweets$price)
+tweet_diff <- diff(ftm_price_tweets$tweets)
+
+price_diff <- price_diff %>%
+  as_tibble_col() %>%
+  rename(price = value)
+
+tweet_diff <- tweet_diff %>%
+  as_tibble_col() %>%
+  rename(tweets = value)
+
+diff_ftm <- price_diff %>%
+  cbind(tweet_diff$tweets) %>%
+  rename(tweets = `tweet_diff$tweets`)
+
+pairs(diff_ftm)
+```
+
+```{r}
+train_ts <- as.xts(train[,2:3], order.by = train$hr)
+test_ts <- as.xts(test[,2:3], order.by = test$hr)
+```
+
+
+```{r}
+autoplot(train_ts[,"price"])
+```
+
+```{r}
+autoplot(train_ts[,"tweets"])
+```
+
+```{r}
+train_pts <- as.xts(train[,2], order.by = train$hr)
+test_pts <- as.xts(test[,2], order.by = test$hr)
+```
+
+```{r}
+train_pts2 <- ts(train_pts, frequency = 24*365, start = c(2021, 8738))
+Box.test(train_pts2, lag = 1, type = "Lj")
+```
+
+```{r}
+fit <- tbats(train_pts2)
+checkresiduals(fit)
+```
+
+```{r}
+fit %>%forecast(h = test.length) %>% autoplot()
+```
+
+```{r}
+xreg = fourier(train_pts2, K = 1)
+fit <- auto.arima(train_pts2, xreg = xreg, seasonal = FALSE, stationary = TRUE)
+checkresiduals(fit)
+
+```
+
+```{r}
+fit %>%forecast(xreg = fourier(train_pts2, K = 1, h = test.length)) %>% autoplot()
+```
+
+```{r}
+xreg = fourier(train_pts2, K = 2)
+fit <- auto.arima(train_pts2, xreg = xreg, seasonal = FALSE, stationary = TRUE)
+checkresiduals(fit)
+
+```
+
+```{r}
+fit %>%forecast(xreg = fourier(train_pts2, K = 2, h = test.length)) %>% autoplot()
+```
+
+
+
+```{r}
+xreg = fourier(train_pts2, K = 3)
+fit <- auto.arima(train_pts2, xreg = xreg, seasonal = FALSE, stationary = TRUE)
+checkresiduals(fit)
+
+```
+
+
+```{r}
+fit %>%forecast(xreg = fourier(train_pts2, K = 3, h = test.length)) %>% autoplot()
+```
+```{r}
+xreg = fourier(train_pts2, K = 24)
+fit <- auto.arima(train_pts2, xreg = xreg, seasonal = FALSE, stationary = TRUE)
+checkresiduals(fit)
+
+```
+
+```{r}
+fit %>%forecast(xreg = fourier(train_pts2, K = 24, h = test.length)) %>% autoplot()
+```
+
+```{r}
+train_pts3 <- msts(train_pts, seasonal.periods = c(24, 24*3.5, 24*7, 24*7*4))
+```
+
+```{r}
+fit <- tbats(train_pts3)
+checkresiduals(fit)
+```
+
+```{r}
+fit %>%forecast(h = test.length) %>% autoplot()
+```
+
+
+```{r}
+xreg = fourier(train_pts3, K = c(10,1,0,0))
+fit <- auto.arima(train_pts3, xreg = xreg, seasonal = FALSE, stationary = FALSE, lambda = "auto")
+checkresiduals(fit)
+
+```
+
+```{r}
+fit %>%forecast(xreg = fourier(train_pts3, K = c(10,1,0,0), h = test.length)) %>% autoplot()
+```
+```{r}
+xreg = fourier(train_pts3, K = c(1,10,0,0))
+fit <- auto.arima(train_pts3, xreg = xreg, seasonal = FALSE, stationary = FALSE, lambda = "auto")
+checkresiduals(fit)
+```
+
+```{r}
+fit %>%forecast(xreg = fourier(train_pts3, K = c(1,10,0,0), h = test.length)) %>% autoplot()
+```
+
+```{r}
+xreg = fourier(train_pts3, K = c(10,10,0,0))
+fit <- auto.arima(train_pts3, xreg = xreg, seasonal = FALSE, stationary = FALSE, lambda = "auto")
+checkresiduals(fit)
+```
+
+```{r}
+fit %>%forecast(xreg = fourier(train_pts3, K = c(10,10,0,0), h = test.length)) %>% autoplot()
+```
+
+```{r}
+xreg = fourier(train_pts3, K = c(1,0,1,0))
+fit <- auto.arima(train_pts3, xreg = xreg, seasonal = FALSE, stationary = FALSE, lambda = "auto")
+checkresiduals(fit)
+```
+
+```{r}
+fit %>%forecast(xreg = fourier(train_pts3, K = c(1,0,1,0), h = test.length)) %>% autoplot()
+```
+
+```{r}
+xreg = fourier(train_pts3, K = c(12,24,24,0))
+fit <- auto.arima(train_pts3, xreg = xreg, seasonal = FALSE, stationary = FALSE, lambda = "auto")
+checkresiduals(fit)
+```
+
+```{r}
+fit %>%forecast(xreg = fourier(train_pts3, K = c(12,24,24,0), h = test.length)) %>% autoplot()
+```
+
+```{r}
+xreg = fourier(train_pts3, K = c(12,42,84,0))
+fit <- auto.arima(train_pts3, xreg = xreg, seasonal = FALSE, stationary = FALSE, lambda = "auto")
+checkresiduals(fit)
+```
+
+
+```{r}
+fit %>%forecast(xreg = fourier(train_pts3, K = c(12,42,84,0), h = test.length)) %>% autoplot()
+```

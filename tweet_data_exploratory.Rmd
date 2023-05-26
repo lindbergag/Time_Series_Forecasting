@@ -1,0 +1,426 @@
+---
+title: "tweet data exploratory"
+output: html_document
+keep_md: yes
+---
+
+```{r setup-chunk, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      cache = FALSE)
+```
+
+```{r}
+
+if (!require("tidyverse")) install.packages("tidyverse")
+library(tidyverse)
+if (!require("tm")) install.packages("tm")
+library(tm)
+if (!require("ggplot2")) install.packages("ggplot2")
+library(ggplot2)
+if (!require("ggthemes")) install.packages("ggthemes")
+library(ggthemes)
+if (!require("lubridate")) install.packages("lubridate")
+library(lubridate)
+if (!require("rtweet")) install.packages("rtweet")
+library(rtweet)
+
+theme_set(theme_wsj(color ="gray"))
+
+```
+Import data
+```{r}
+# read in csv file of tweets
+rawish.data <- read.csv('influencerdata_clean.csv')
+tweets <- rawish.data
+```
+
+Going to need some foundational information. Date Range, most common tags, etc.
+
+```{r}
+tweets$created_at <- as_datetime(tweets$created_at)
+tweets$quoted_created_at <- as_datetime(tweets$quoted_created_at)
+tweets$retweet_created_at <- as_datetime(tweets$retweet_created_at)
+tweets$account_created_at <- as_datetime(tweets$account_created_at)
+
+ts_plot(tweets, by = "years")
+
+```
+
+```{r}
+summary(tweets$created_at)
+```
+Clean hashtags
+```{r}
+# common artifacts that remain after cleaning
+other.words <- c("rt", "amp","htt")
+
+# remove all urls
+tweets$hashtags <- gsub("(s?)(f|ht)tp(s?)://\\S+\\b", "", tweets$hashtags)
+
+
+# clean data
+tweets$hashtags <- tweets$hashtags %>%
+  removeNumbers() %>%
+  tolower() %>%
+  iconv(from = 'UTF-8', to = 'ASCII//TRANSLIT') %>% #Remove accents, foreign language items
+  removeWords(stopwords("SMART")) %>%
+  removeWords(other.words) %>%
+  stemDocument() %>%
+  stripWhitespace()
+
+tweets$hashtags[tweets$hashtags == "NA"] <- NA
+
+```
+
+
+Clean symbols
+```{r}
+# common artifacts that remain after cleaning
+other.words <- c("rt", "amp","htt")
+
+# remove all urls
+tweets$symbols <- gsub("(s?)(f|ht)tp(s?)://\\S+\\b", "", tweets$symbols)
+
+
+# clean data
+tweets$symbols <- tweets$symbols %>%
+  removeNumbers() %>%
+  tolower() %>%
+  iconv(from = 'UTF-8', to = 'ASCII//TRANSLIT') %>% #Remove accents, foreign language items
+  removeWords(stopwords("SMART")) %>%
+  removeWords(other.words) %>%
+  stemDocument() %>%
+  stripWhitespace()
+
+tweets$symbols[tweets$symbols == "NA"] <- NA
+
+```
+
+```{r}
+#Visual Most hashtags
+tweets %>%
+  count(hashtags, sort = TRUE) %>%
+  filter(!(is.na(hashtags))) %>%
+  filter(n > 500) %>%
+  mutate(word = reorder(hashtags, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL) +
+  ggtitle("Occurences of hashtags")
+```
+```{r}
+ggsave('images/hashes500-.png')
+```
+
+This is where being a subject matter expert is helpful.
+
+```{r}
+#Visual Most hashtags
+tweets %>%
+  count(hashtags, sort = TRUE) %>%
+  filter(!(is.na(hashtags))) %>%
+  filter(n > 200) %>%
+  filter(n < 501) %>%
+  mutate(word = reorder(hashtags, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL) +
+  ggtitle("Occurences of hashtags")
+```
+```{r}
+ggsave('images/hashes200-500.png')
+```
+
+```{r}
+#Visual Most hashtags
+tweets %>%
+  count(hashtags, sort = TRUE) %>%
+  filter(!(is.na(hashtags))) %>%
+  filter(n > 100) %>%
+  filter(n < 201) %>%
+  mutate(word = reorder(hashtags, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL) +
+  ggtitle("Occurences of hashtags")
+```
+
+```{r}
+ggsave('images/hashes100-200.png')
+```
+
+
+```{r}
+#Visual Most hashtags
+tweets %>%
+  count(hashtags, sort = TRUE) %>%
+  filter(!(is.na(hashtags))) %>%
+  filter(n > 75) %>%
+  filter(n < 101) %>%
+  mutate(word = reorder(hashtags, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL) +
+  ggtitle("Occurences of hashtags")
+```
+```{r}
+ggsave('images/hashes75-100.png')
+```
+
+```{r}
+#Visual Most hashtags
+tweets %>%
+  count(hashtags, sort = TRUE) %>%
+  filter(!(is.na(hashtags))) %>%
+  filter(n > 65) %>%
+  filter(n < 76) %>%
+  mutate(word = reorder(hashtags, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL) +
+  ggtitle("Occurences of hashtags")
+```
+
+
+```{r}
+ggsave('/images/hashes65-75.png')
+```
+
+```{r}
+#Visual Most hashtags
+tweets %>%
+  count(hashtags, sort = TRUE) %>%
+  filter(!(is.na(hashtags))) %>%
+  filter(n > 55) %>%
+  filter(n < 66) %>%
+  mutate(word = reorder(hashtags, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL) +
+  ggtitle("Occurences of hashtags")
+```
+```{r}
+ggsave('images/hashes55-65.png')
+```
+
+```{r}
+#Visual Most hashtags
+tweets %>%
+  count(hashtags, sort = TRUE) %>%
+  filter(!(is.na(hashtags))) %>%
+  filter(n > 50) %>%
+  filter(n < 56) %>%
+  mutate(word = reorder(hashtags, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL) +
+  ggtitle("Occurences of hashtags")
+```
+```{r}
+ggsave('images/hashes50-55.png')
+```
+What about symbols?
+```{r}
+#Visual Most Symbols
+tweets %>%
+  count(symbols, sort = TRUE) %>%
+  filter(!(is.na(symbols))) %>%
+  filter(n > 500) %>%
+  mutate(word = reorder(symbols, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL) +
+  ggtitle("Occurences of Symbols")
+```
+
+```{r}
+ggsave('images/symbols500-.png')
+```
+This is where being a subject matter expert is helpful. We can look at the following and dig a little deeper
+Treeb, BOO, MCC, Spirit, lqdr
+
+```{r}
+#Visual Most Symbols
+tweets %>%
+  count(symbols, sort = TRUE) %>%
+  filter(!(is.na(symbols))) %>%
+  filter(n > 400) %>%
+  filter(n < 501) %>%
+  mutate(word = reorder(symbols, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL) +
+  ggtitle("Occurences of Symbols")
+```
+```{r}
+ggsave('images/symbols400-500.png')
+```
+KSM is worth a look.
+
+```{r}
+#Visual Most Symbols
+tweets %>%
+  count(symbols, sort = TRUE) %>%
+  filter(!(is.na(symbols))) %>%
+  filter(n > 300) %>%
+  filter(n < 401) %>%
+  mutate(word = reorder(symbols, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL) +
+  ggtitle("Occurences of Symbols")
+```
+```{r}
+ggsave('images/symbols300-400.png')
+```
+Comb, Kasta, vpn, and Beets?
+```{r}
+#Visual Most Symbols
+tweets %>%
+  count(symbols, sort = TRUE) %>%
+  filter(!(is.na(symbols))) %>%
+  filter(n > 200) %>%
+  filter(n < 301) %>%
+  mutate(word = reorder(symbols, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL) +
+  ggtitle("Occurences of Symbols")
+```
+
+```{r}
+ggsave('images/symbols200-300.png')
+```
+OXD, HEC, scream, tarot, WOO?
+
+```{r}
+#Visual Most Symbols
+tweets %>%
+  count(symbols, sort = TRUE) %>%
+  filter(!(is.na(symbols))) %>%
+  filter(n > 150) %>%
+  filter(n < 201) %>%
+  mutate(word = reorder(symbols, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL) +
+  ggtitle("Occurences of Symbols")
+```
+
+```{r}
+ggsave('images/symbols150-200.png')
+```
+
+Brush, Wigo?
+
+```{r}
+#Visual Most Symbols
+tweets %>%
+  count(symbols, sort = TRUE) %>%
+  filter(!(is.na(symbols))) %>%
+  filter(n > 100) %>%
+  filter(n < 151) %>%
+  mutate(word = reorder(symbols, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL) +
+  ggtitle("Occurences of Symbols")
+```
+
+```{r}
+ggsave('images/symbols100-150.png')
+```
+Atlas, CCC?
+
+```{r}
+#Visual Most Symbols
+tweets %>%
+  count(symbols, sort = TRUE) %>%
+  filter(!(is.na(symbols))) %>%
+  filter(n > 75) %>%
+  filter(n < 101) %>%
+  mutate(word = reorder(symbols, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL) +
+  ggtitle("Occurences of Symbols")
+```
+```{r}
+ggsave('images/symbols75-100.png')
+```
+Maybe soul?
+
+```{r}
+#Visual Most Symbols
+tweets %>%
+  count(symbols, sort = TRUE) %>%
+  filter(!(is.na(symbols))) %>%
+  filter(n > 65) %>%
+  filter(n < 76) %>%
+  mutate(word = reorder(symbols, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL) +
+  ggtitle("Occurences of Symbols")
+```
+
+```{r}
+ggsave('images/symbols65-75.png')
+```
+
+Maybe DFI, Weve, geist?
+
+```{r}
+#Visual Most Symbols
+tweets %>%
+  count(symbols, sort = TRUE) %>%
+  filter(!(is.na(symbols))) %>%
+  filter(n > 55) %>%
+  filter(n < 66) %>%
+  mutate(word = reorder(symbols, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL) +
+  ggtitle("Occurences of Symbols")
+```
+
+```{r}
+ggsave('images/symbols55-65.png')
+```
+
+```{r}
+#Visual Most Symbols
+tweets %>%
+  count(symbols, sort = TRUE) %>%
+  filter(!(is.na(symbols))) %>%
+  filter(n > 50) %>%
+  filter(n < 56) %>%
+  mutate(word = reorder(symbols, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL) +
+  ggtitle("Occurences of Symbols")
+```
+
+```{r}
+ggsave('images/symbols50-55.png')
+```
+Maybe SPA, VOLT?
+Filtering the symbols I've picked out
+```{r}
+tokens = c('boo', 'spirit', 'treeb', 'lqdr', 'comb', 'beets', 'hec', 'power', 'tarot', 
+           'oxd', 'woo', 'brush', 'wigo', 'atlas', 'soul', 'dfi', 'weve', 'geist', 'spa')
+
+tweets %>%
+  count(symbols, sort = TRUE) %>%
+  filter(symbols %in% tokens)
+```
+
+```{r}
+tweet.counts <- tweets %>%
+  count(symbols, sort = TRUE) %>%
+  filter(symbols %in% tokens)
+
+mean(tweet.counts$n)
+mad(tweet.counts$n)
+```

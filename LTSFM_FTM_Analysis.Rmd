@@ -1,0 +1,365 @@
+---
+title: "ltsm ftm analysis"
+output: html_document
+keep_md: yes
+---
+
+```{r setup-chunk, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      cache = FALSE)
+```
+
+```{r}
+if (!require("keras")) install.packages("keras")
+if (!require("tensorflow")) install.packages("tensorflow")
+if (!require("reticulate")) install.packages("reticulate")
+path_to_python <- "C:/Users/lindb/.pyenv/pyenv-win/versions/3.10.5/python.exe"
+virtualenv_create('r-reticulate', python = path_to_python)
+library(tensorflow)
+install_keras(envname = 'r-reticulate', version = 'nightly-cpu')
+library(keras)
+library(tensorflow)
+tf$constant("Hello Tensorflow!")
+```
+```{r}
+tf$constant("Hello Tensorflow!")
+```
+
+
+```{r}
+if (!require("tidyverse")) install.packages("tidyverse")
+library(tidyverse)
+if (!require("tm")) install.packages("tm")
+library(tm)
+if (!require("ggplot2")) install.packages("ggplot2")
+library(ggplot2)
+if (!require("lubridate")) install.packages("lubridate")
+library(lubridate)
+if (!require("forecast")) install.packages("forecast")
+library(forecast)
+```
+
+```{r}
+
+# read in the price data 
+token_prices <- read_csv("tokenprices.csv")
+
+token_names <- c("fantom", "spookyswap", "spiritswap", "liquiddriver", "comb-finance", "0xdao", 
+                 "atlas-cloud", "soul-swap", "geist-finance", "spartacus")
+
+token_prices <- token_prices %>%
+  filter(coin_id %in% token_names) %>%
+  select(-vs_currency, -...1)
+
+token_prices$timestamp <- as_datetime(token_prices$timestamp, tz = "UTC")
+
+token_prices %>%
+  group_by(coin_id) %>%
+  slice(which.min(timestamp)) %>%
+  arrange(desc(timestamp))
+```
+
+
+Going to use newest token to determine the testing data
+```{r}
+
+token_prices <- token_prices %>%
+  ungroup()
+
+oxdao <- token_prices %>%
+  filter(coin_id == "0xdao")
+
+start.date <- oxdao %>%
+  slice_min(timestamp) %>%
+  pull(timestamp)
+
+test.start <- oxdao$timestamp[(length(oxdao$timestamp)-50)]
+test.length <- 50
+
+end.date <- token_prices %>%
+  slice_max(timestamp) %>%
+  pull(timestamp)
+```
+
+Now, let's start doing some work on Fantom data
+```{r}
+ftm_price <- token_prices %>%
+  filter(coin_id == "fantom") %>%
+  select(-coin_id) %>%
+  arrange(timestamp)
+
+ftm.start.date <- ftm_price %>%
+  slice_min(timestamp) %>%
+  pull(timestamp)
+```
+
+
+Import data
+```{r}
+# read in csv file of tweets
+tweets <- read.csv('influencerdata_clean.csv')
+```
+
+```{r}
+tweets$created_at <- as_datetime(tweets$created_at, tz = "UTC")
+tweets$quoted_created_at <- as_datetime(tweets$quoted_created_at, tz = "UTC")
+tweets$retweet_created_at <- as_datetime(tweets$retweet_created_at, tz = "UTC")
+tweets$account_created_at <- as_datetime(tweets$account_created_at, tz = "UTC")
+
+```
+
+Clean symbols
+```{r}
+# common artifacts that remain after cleaning
+other.words <- c("rt", "amp","htt")
+
+# remove all urls
+tweets$symbols <- gsub("(s?)(f|ht)tp(s?)://\\S+\\b", "", tweets$symbols)
+
+
+# clean data
+tweets$symbols <- tweets$symbols %>%
+  removeNumbers() %>%
+  tolower() %>%
+  iconv(from = 'UTF-8', to = 'ASCII//TRANSLIT') %>% #Remove accents, foreign language items
+  removeWords(stopwords("SMART")) %>%
+  removeWords(other.words) %>%
+  stemDocument() %>%
+  stripWhitespace()
+
+tweets$symbols[tweets$symbols == "NA"] <- NA
+
+
+```
+
+```{r}
+ftm <- tweets %>%
+  filter(symbols == "ftm") %>%
+  mutate(hr = round_date(created_at, unit = "hour"))
+
+ftm <- ftm %>% count(hr)
+
+ftm %>% 
+  ggplot() + 
+  geom_line(aes(x = hr, y = n), alpha = .7) + # change alpha for readability 
+  theme(axis.text.x = element_text(angle = 30)) + # make x-axis more readable
+  ggtitle("Tweets per Hour") +
+  xlab("") +
+  ylab("Tweets")
+```
+
+We don't have price data until 4/1, let's filter the tweets to then
+```{r}
+ftm <- tweets %>%
+  filter(symbols == "ftm") %>%
+  mutate(hr = round_date(created_at, unit = "hour")) %>%
+  filter(created_at >= ftm.start.date) 
+
+ftm <- ftm %>% count(hr)
+
+ftm %>% 
+  ggplot() + 
+  geom_col(aes(x = hr, y = n)) + 
+  theme(axis.text.x = element_text(angle = 30)) + # make x-axis more readable
+  ggtitle("Tweets per Hour") +
+  xlab("") +
+  ylab("Tweets")
+```
+
+```{r}
+ftm_price <-  ftm_price %>%
+  mutate(hr = round_date(timestamp, unit = "hour"))
+```
+
+```{r}
+#Merge the two tables
+ftm <- ftm_price %>%
+  select(hr, price) %>%
+  left_join(ftm, by = c("hr" = "hr"))
+
+# change nas to 0s 
+ftm <- ftm %>% mutate(n = ifelse(is.na(n), 0, n)) %>%
+  rename(tweets = n) %>%
+  filter(hr >= start.date) #reducing the dataset size
+```
+
+```{r}
+scale_factors_p <- c(mean(ftm$price), sd(ftm$price))
+scale_factors_t <- c(mean(ftm$tweets), sd(ftm$tweets))
+
+train <- ftm %>%
+  slice_head(n = (length(ftm$price) - test.length))
+
+test <- ftm %>%
+  slice_tail(n = test.length)
+
+scaled_train <- train %>%
+  select(price) %>%
+  mutate(price = (price  - scale_factors_p[1])/scale_factors_p[2])
+
+scaled_test <- test %>%
+  select(price) %>%
+  mutate(price = (price  - scale_factors_p[1])/scale_factors_p[2])
+
+prediction <- test.length
+lag <- prediction
+```
+
+Transform x values
+```{r}
+scaled_train <- as.matrix(scaled_train)
+ 
+# we lag the data and arrange that into columns
+x_train_data <- t(sapply(
+    1:(length(scaled_train) - lag - prediction + 1),
+    function(x) scaled_train[x:(x + lag - 1), 1]
+  ))
+ 
+# now we transform it into 3D form
+x_train_arr <- array(
+    data = as.numeric(unlist(x_train_data)),
+    dim = c(
+        nrow(x_train_data),
+        lag,
+        1
+    )
+)
+```
+
+Transform y values
+```{r}
+y_train_data <- t(sapply(
+    (1 + lag):(length(scaled_train) - prediction + 1),
+    function(x) scaled_train[x:(x + prediction - 1)]
+))
+
+y_train_arr <- array(
+    data = as.numeric(unlist(y_train_data)),
+    dim = c(
+        nrow(y_train_data),
+        prediction,
+        1
+    )
+)
+```
+
+Prep test values
+```{r}
+x_test <- test$price[(nrow(scaled_test) - prediction + 1):nrow(scaled_test)]
+
+# scale the data with same scaling factors as for training
+x_test_scaled <- (x_test - scale_factors_p[1]) / scale_factors_p[2]
+
+# this time our array just has one sample, as we intend to perform one prediction
+x_pred_arr <- array(
+    data = x_test_scaled,
+    dim = c(
+        1,
+        lag,
+        1
+    )
+)
+```
+
+ltsm preparation
+```{r}
+lstm_model <- keras_model_sequential()
+
+lstm_model %>%
+  layer_lstm(units = 50, # size of the layer
+       batch_input_shape = c(1, test.length, 1), # batch size, timesteps, features
+       return_sequences = TRUE,
+       stateful = TRUE) %>%
+  # fraction of the units to drop for the linear transformation of the inputs
+  layer_dropout(rate = 0.5) %>%
+  layer_lstm(units = 50,
+        return_sequences = TRUE,
+        stateful = TRUE) %>%
+  layer_dropout(rate = 0.5) %>%
+  time_distributed(keras::layer_dense(units = 1))
+
+lstm_model %>%
+    compile(loss = 'mae', optimizer = 'adam', metrics = 'accuracy')
+
+summary(lstm_model)
+```
+
+
+
+```{r}
+#fit the model
+lstm_model %>% fit(
+    x = x_train_arr,
+    y = y_train_arr,
+    batch_size = 1,
+    epochs = 20,
+    verbose = 0,
+    shuffle = FALSE
+)
+#perform predictions
+lstm_forecast <- lstm_model %>%
+    predict(x_pred_arr, batch_size = 1) %>%
+    .[, , 1]
+
+# we need to rescale the data to restore the original values
+lstm_forecast <- lstm_forecast * scale_factors_p[2] + scale_factors_p[1]
+```
+
+Prediction on the training set
+```{r}
+fitted <- predict(lstm_model, x_train_arr, batch_size = 1) %>%
+     .[, , 1]
+#Need to transform the data to get only 1 prediction per data point
+if (dim(fitted)[2] > 1) {
+    fit <- c(fitted[, 1], fitted[dim(fitted)[1], 2:dim(fitted)[2]])
+} else {
+    fit <- fitted[, 1]
+}
+
+# additionally we need to rescale the data
+fitted <- fit * scale_factors_p[2] + scale_factors_p[1]
+nrow(fitted)
+```
+
+```{r}
+# Forecast values
+fitted <- c(rep(NA, lag), fitted)
+
+if (!require("timetk")) install.packages("timetk")
+library(timetk)
+
+#change predicted values into time series object
+lstm_forecast <- timetk::tk_ts(lstm_forecast,
+    start = c(2022, 1413),
+    end = c(2022,1462)
+)
+#Transform input into TS
+input_ts <- timetk::tk_ts(train$price, 
+    start = c(2022, 510), 
+    end = c(2022, 1412))
+
+#Define the forecast object
+forecast_list <- list(
+    model = NULL,
+    method = "LSTM",
+    mean = lstm_forecast,
+    x = input_ts,
+    fitted = fitted,
+    residuals = as.numeric(input_ts) - as.numeric(fitted)
+  )
+
+class(forecast_list) <- "forecast"
+```
+
+Plot!
+```{r}
+forecast::autoplot(forecast_list)
+```
+
+```{r}
+test.plot <- timetk::tk_ts(ftm$price,
+    start = c(2022, 510),
+    end = c(2022,1462)
+)
+autoplot(test.plot)
+```
